@@ -17,6 +17,10 @@ const fns = text.match(fnsRegex)
         }
     })
 
+const snakeCase = function(str) {
+    return str.replace(/([A-Z])/g, "_$1").replace(/^_/,'').toLowerCase()
+}
+
 const camelize = function(str) {
     return str.replace(/(?:^\w|[A-Z]|\b\w|\s+)/g, function(match, index) {
         if (+match === 0) return "" // or if (/\s+/.test(match)) for white spaces
@@ -27,7 +31,7 @@ const camelize = function(str) {
 const getInputs = function(args) {
     return args
         .filter(a => a[0].indexOf("in") == 0 || a[0].indexOf("optIn") == 0)
-        .map(a => [camelize(a[0].replace(/^(in|optIn)/, "")), a[1]])
+        .map(a => [snakeCase(a[0].replace(/^(in|optIn)/, "")), a[1]])
 }
 
 const getInputTypes = function(args) {
@@ -58,6 +62,7 @@ const getOutputs = function(args) {
         .filter(a => a[0].indexOf("out") == 0)
         // remove outs that are common to all functions
         .filter(a => ["outBegIdx", "outNBElement"].indexOf(a[0]) < 0)
+        .map(a => [snakeCase(a[0]), a[1]])
 }
 
 const getOutputTypes = function(args) {
@@ -154,7 +159,7 @@ let stream = fs.createWriteStream("./out/talib.rs");
 stream.once('open', function(fd) {
     stream.write(`
 extern crate ta_lib_wrapper;
-use ta_lib_wrapper::{TA_Integer, TA_Real, ${fns.map(fn => `TA_${fn.name}`).join(', ')} TA_MAType, TA_RetCode};
+use ta_lib_wrapper::{TA_Integer, TA_Real, ${fns.map(fn => `TA_${fn.name}`).join(', ')}, TA_MAType, TA_RetCode};
         `)
 
     fns.forEach(fn => {
