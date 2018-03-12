@@ -1,8 +1,8 @@
 const fs = require("fs")
 const text = fs.readFileSync("./in/bindings.rs").toString('utf-8')
 
-const fnsRegex = new RegExp(/pub fn TA_([A-Z_]+)\((?:\w+\:.*\,?\s*)+\)/g)
-const fnNameRegex = new RegExp(/pub fn TA_([A-Z_]+)\(/)
+const fnsRegex = new RegExp(/pub fn TA_([A-Z]+)\((?:\w+\:.*\,?\s*)+\)/g)
+const fnNameRegex = new RegExp(/pub fn TA_([A-Z]+)\(/)
 const argsRegex = /(\w+)\: ([\w:*0-9 ]+)\,?/g
 const argTypeRegex = /(\w+)\: ([\w:*0-9 ]+)\,?/
 
@@ -152,6 +152,11 @@ pub fn ${fn.name.toLowerCase()}(${inputTypes}) -> (${outputTypes}, TA_Integer) {
 
 let stream = fs.createWriteStream("./out/talib.rs");
 stream.once('open', function(fd) {
+    stream.write(`
+extern crate ta_lib_wrapper;
+use ta_lib_wrapper::{TA_Integer, TA_Real, ${fns.map(fn => `TA_${fn.name}`).join(', ')} TA_MAType, TA_RetCode};
+        `)
+
     fns.forEach(fn => {
         stream.write(generateFnCode(fn))
     })
