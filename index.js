@@ -24,14 +24,37 @@ const camelize = function(str) {
     })
 }
 
-const getInputs = (inputs) => {
-    return inputs
+const getInTypes = function(args) {
+    const typeMap = {
+        f32: "TA_Real",
+        f64: "TA_Real",
+        "::std::os::raw::c_int": "TA_Integer"
+    }
+
+    return args
+        .map(a => {
+            let [n, t] = a
+            if (t.indexOf('*') == 0) {
+                let innerType = typeMap[t.match(/([a-z][0-9]+)/)[1]]
+                return `&Vec<${innerType}>`
+            }
+        })
+}
+
+const getInputs = function(args) {
+    return args
         .filter(a => a[0].indexOf("in") == 0 || a[0].indexOf("optIn") == 0)
         .map(a => [camelize(a[0].replace(/^(in|optIn)/, "")), a[1]])
 }
 
-const generateCode = (fn) => {
+const getOutputs = function(args) {
+    return args
+        .filter(a => a[0].indexOf("out") == 0)
+}
+
+const generateCode = function(fn) {
     const inputs = getInputs(fn.args)
+    const output = getOutputs(fn.args)
     return `
 use ta_lib_wrapper::{TA_Integer, TA_Real, TA_${fn.name},  TA_RetCode};
 
