@@ -1,24 +1,8 @@
+#!/usr/bin/env node
 const fs = require("fs")
-const text = fs.readFileSync("./in/bindings.rs").toString('utf-8')
-
-const fnsRegex = new RegExp(/pub fn TA_([A-Z]+)\((?:\w+\:.*\,?\s*)+\)/g)
-const fnNameRegex = new RegExp(/pub fn TA_([A-Z]+)\(/)
-const argsRegex = /(\w+)\: ([\w:*0-9 ]+)\,?/g
-const argTypeRegex = /(\w+)\: ([\w:*0-9 ]+)\,?/
-
-const fns = text.match(fnsRegex)
-    .map(fn => {
-        return {
-            name: fn.match(fnNameRegex)[1],
-            args: fn.match(argsRegex).map(arg => {
-                const m = arg.match(argTypeRegex)
-                return [m[1], m[2]]
-            })
-        }
-    })
 
 const snakeCase = function(str) {
-    return str.replace(/([A-Z])/g, "_$1").replace(/^_/,'').toLowerCase()
+    return str.replace(/([A-Z]+)/g, "_$1").replace(/^_/,'').replace(/_+/g,'_').toLowerCase()
 }
 
 const camelize = function(str) {
@@ -123,7 +107,11 @@ const generateFnCode = function(fn) {
         .map(o => o[0])
         .join(', ')
 
+    const maTypeInclude = fn.args.filter(a => a[1].indexOf('TA_MAType') > 0).length ? "TA_MAType, " : ""
+
     return `
+use ta_lib_wrapper::{TA_Integer, TA_Real, ${`TA_${fn.name}`}, ${maTypeInclude}TA_RetCode};
+
 pub fn ${fn.name.toLowerCase()}(${inputTypes}) -> (${outputTypes}, TA_Integer) {
     ${outputDeclarations}
     let mut out_begin: TA_Integer = 0;
@@ -155,17 +143,39 @@ pub fn ${fn.name.toLowerCase()}(${inputTypes}) -> (${outputTypes}, TA_Integer) {
     `
 }
 
-let stream = fs.createWriteStream("./out/talib.rs");
-stream.once('open', function(fd) {
-    stream.write(`
-extern crate ta_lib_wrapper;
-use ta_lib_wrapper::{TA_Integer, TA_Real, ${fns.map(fn => `TA_${fn.name}`).join(', ')}, TA_MAType, TA_RetCode};
-        `)
 
-    fns.forEach(fn => {
-        stream.write(generateFnCode(fn))
+const argv = require('yargs')
+    .usage('Usage: $0 --input [path] --output [path]')
+    .alias('i', 'input')
+    .alias('o', 'output')
+    .demandOption(['i', 'o'])
+    .argv
+
+const text = fs.readFileSync(argv.i).toString('utf-8')
+
+const fnsRegex = new RegExp(/pub fn TA_([A-Z]+)\((?:\w+\:.*\,?\s*)+\)/g)
+const fnNameRegex = new RegExp(/pub fn TA_([A-Z]+)\(/)
+const argsRegex = /(\w+)\: ([\w:*0-9 ]+)\,?/g
+const argTypeRegex = /(\w+)\: ([\w:*0-9 ]+)\,?/
+
+const fns = text.match(fnsRegex)
+    .map(fn => {
+        return {
+            name: fn.match(fnNameRegex)[1],
+            args: fn.match(argsRegex).map(arg => {
+                const m = arg.match(argTypeRegex)
+                return [m[1], m[2]]
+            })
+        }
     })
 
-    stream.end()
-});
+fns.forEach(fn => {
+    let curr = fs.createWriteStream(`${argv.o}/${fn.name.toLowerCase()}.rs`)
+    curr.once('open', function(fd) {
+        curr.write(generateFnCode(fn))
+        curr.end()
+    })
+})
+
+
 // console.log(fns[0].args)
