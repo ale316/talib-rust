@@ -177,5 +177,8 @@ fns.forEach(fn => {
     })
 })
 
-
-// console.log(fns[0].args)
+let mod = fs.createWriteStream(`${argv.o}/mod.rs`)
+mod.once('open', function(fd) {
+    mod.write(fns.map(fn => `pub mod ${fn.name[0]};\n`))
+    mod.end()
+})
