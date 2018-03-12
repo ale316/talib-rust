@@ -28,16 +28,22 @@ const getInTypes = function(args) {
     const typeMap = {
         f32: "TA_Real",
         f64: "TA_Real",
-        "::std::os::raw::c_int": "TA_Integer"
+        "::std::os::raw::c_int": "i32",
+        TA_MAType: "TA_MAType"
     }
 
     return args
         .map(a => {
             let [n, t] = a
+
             if (t.indexOf('*') == 0) {
                 let innerType = typeMap[t.match(/([a-z][0-9]+)/)[1]]
-                return `&Vec<${innerType}>`
+                t = `&Vec<${innerType}>`
+            } else {
+                t = typeMap[t]
             }
+
+            return [n, t]
         })
 }
 
@@ -53,8 +59,10 @@ const getOutputs = function(args) {
 }
 
 const generateCode = function(fn) {
-    const inputs = getInputs(fn.args)
+    let inputs = getInputs(fn.args)
+    inputs = getInTypes(inputs)
     const output = getOutputs(fn.args)
+    console.log(inputs)
     return `
 use ta_lib_wrapper::{TA_Integer, TA_Real, TA_${fn.name},  TA_RetCode};
 
