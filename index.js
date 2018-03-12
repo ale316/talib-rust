@@ -1,8 +1,8 @@
 const fs = require("fs")
 const text = fs.readFileSync("./in/bindings.rs").toString('utf-8')
 
-const fnsRegex = new RegExp(/pub fn TA_([A-Z]+)\((?:\w+\:.*\,?\s*)+\)/g)
-const fnNameRegex = new RegExp(/pub fn TA_([A-Z]+)\(/)
+const fnsRegex = new RegExp(/pub fn TA_([A-Z_]+)\((?:\w+\:.*\,?\s*)+\)/g)
+const fnNameRegex = new RegExp(/pub fn TA_([A-Z_]+)\(/)
 const argsRegex = /(\w+)\: ([\w:*0-9 ]+)\,?/g
 const argTypeRegex = /(\w+)\: ([\w:*0-9 ]+)\,?/
 
@@ -78,7 +78,7 @@ const getOutputTypes = function(args) {
         })
 }
 
-const generateCode = function(fn) {
+const generateFnCode = function(fn) {
     let inputs = getInputs(fn.args)
     inputs = getInputTypes(inputs)
     let outputs = getOutputs(fn.args)
@@ -94,20 +94,20 @@ const generateCode = function(fn) {
     // We're under the assumptions that the only output declarations are Vecs
     // and that the first input is always a Vec from which we can derive the output's len
     const outputDeclarations = outputs
-        .map(o => `let mut ${o[0]}: ${o[1]} = Vec::with_capacity(${inputs[0].name}.len());`)
+        .map(o => `let mut ${o[0]}: ${o[1]} = Vec::with_capacity(${inputs[0][0]}.len());`)
         .join('\n')
     const outputArgs = outputs
-        .map(o => `${o[0]}.as_mut_ptr()                // pointer to the first element of the output vector`)
-        .join(',\n')
+        .map(o => `${o[0]}.as_mut_ptr(),`)
+        .join('\n            ')
 
     const inputArgs = inputs
         .map(i => {
             if (i[1].indexOf("Vec<") > 0)
-                return `${i[0]}.as_ptr()                  // pointer to the first ${i[0]} of the vector`
+                return `${i[0]}.as_ptr(),`
             else
-                return `${i[0]}`
+                return `${i[0]},`
         })
-        .join(',\n')
+        .join('\n            ')
 
 
     const onSuccessSetSizes = outputs
@@ -119,9 +119,7 @@ const generateCode = function(fn) {
         .join(', ')
 
     return `
-use ta_lib_wrapper::{TA_Integer, TA_Real, TA_${fn.name}, TA_RetCode, TA_MAType};
-
-pub fn tristar(${inputTypes}) -> (${outputTypes}, TA_Integer) {
+pub fn ${fn.name.toLowerCase()}(${inputTypes}) -> (${outputTypes}, TA_Integer) {
     ${outputDeclarations}
     let mut out_begin: TA_Integer = 0;
     let mut out_size: TA_Integer = 0;
@@ -129,7 +127,7 @@ pub fn tristar(${inputTypes}) -> (${outputTypes}, TA_Integer) {
     unsafe {
         let ret_code = TA_${fn.name}(
             0,                              // index of the first element to use
-            ${inputs[0].name}.len() as i32 - 1,          // index of the last element to use
+            ${inputs[0][0]}.len() as i32 - 1,          // index of the last element to use
             ${inputArgs}
             &mut out_begin,                 // set to index of the first close to have an rsi value
             &mut out_size,                  // set to number of sma values computed
@@ -152,6 +150,12 @@ pub fn tristar(${inputTypes}) -> (${outputTypes}, TA_Integer) {
     `
 }
 
+let stream = fs.createWriteStream("./out/talib.rs");
+stream.once('open', function(fd) {
+    fns.forEach(fn => {
+        stream.write(generateFnCode(fn))
+    })
 
-console.log(fns.map(f => generateCode(f)))
+    stream.end()
+});
 // console.log(fns[0].args)
