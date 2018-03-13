@@ -107,11 +107,7 @@ const generateFnCode = function(fn) {
         .map(o => o[0])
         .join(', ')
 
-    const maTypeInclude = fn.args.filter(a => a[1].indexOf('TA_MAType') >= 0).length ? "TA_MAType, " : ""
-
-    return `
-use ta_lib_wrapper::{TA_Integer, TA_Real, ${`TA_${fn.name}`}, ${maTypeInclude}TA_RetCode};
-
+    return `#[allow(dead_code)]
 pub fn ${fn.name.toLowerCase()}(${inputTypes}) -> (${outputTypes}, TA_Integer) {
     ${outputDeclarations}
     let mut out_begin: TA_Integer = 0;
@@ -139,8 +135,7 @@ pub fn ${fn.name.toLowerCase()}(${inputTypes}) -> (${outputTypes}, TA_Integer) {
     }
 
     (${returnOutputs}, out_begin)
-}
-    `
+}\n\n`
 }
 
 
@@ -169,16 +164,12 @@ const fns = text.match(fnsRegex)
         }
     })
 
-fns.forEach(fn => {
-    let curr = fs.createWriteStream(`${argv.o}/${fn.name.toLowerCase()}.rs`)
-    curr.once('open', function(fd) {
-        curr.write(generateFnCode(fn))
-        curr.end()
-    })
-})
-
-let mod = fs.createWriteStream(`${argv.o}/mod.rs`)
+let mod = fs.createWriteStream(`${argv.o}`)
 mod.once('open', function(fd) {
-    mod.write(fns.map(fn => `pub mod ${fn.name.toLowerCase()};`).join('\n'))
+    let fnNames = fns.map(fn => `TA_${fn.name}`).join(', ')
+    mod.write(`use ta_lib_wrapper::{TA_Integer, TA_Real, TA_MAType, TA_RetCode, ${fnNames}};\n\n`)
+    fns.forEach(fn => {
+        mod.write(generateFnCode(fn))
+    })
     mod.end()
 })
