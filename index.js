@@ -91,7 +91,7 @@ const generateFnCode = function(fn) {
 
     const inputArgs = inputs
         .map(i => {
-            if (i[1].indexOf("Vec<") > 0)
+            if (i[1].indexOf("Vec<") >= 0)
                 return `${i[0]}.as_ptr(),`
             else
                 return `${i[0]},`
@@ -108,7 +108,6 @@ const generateFnCode = function(fn) {
         .join(', ')
 
     const maTypeInclude = fn.args.filter(a => a[1].indexOf('TA_MAType') >= 0).length ? "TA_MAType, " : ""
-    console.log(fn.args)
 
     return `
 use ta_lib_wrapper::{TA_Integer, TA_Real, ${`TA_${fn.name}`}, ${maTypeInclude}TA_RetCode};
