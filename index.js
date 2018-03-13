@@ -107,7 +107,8 @@ const generateFnCode = function(fn) {
         .map(o => o[0])
         .join(', ')
 
-    const maTypeInclude = fn.args.filter(a => a[1].indexOf('TA_MAType') > 0).length ? "TA_MAType, " : ""
+    const maTypeInclude = fn.args.filter(a => a[1].indexOf('TA_MAType') >= 0).length ? "TA_MAType, " : ""
+    console.log(fn.args)
 
     return `
 use ta_lib_wrapper::{TA_Integer, TA_Real, ${`TA_${fn.name}`}, ${maTypeInclude}TA_RetCode};
